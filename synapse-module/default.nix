@@ -19,7 +19,6 @@ let
     inherit (cfg) plugins;
     extras = [
       "postgres"
-      "saml2"
       "oidc"
       "systemd"
       "url-preview"
