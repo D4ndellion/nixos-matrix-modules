@@ -448,7 +448,7 @@ in
               keys-directory = cfg.dataDir;
             };
           in "${wrapped}/bin/synapse_homeserver ${flags}";
-          ExecReload = "${pkgs.utillinux}/bin/kill -HUP $MAINPID";
+          ExecReload = "${lib.getExe' pkgs.coreutils "kill"} -HUP $MAINPID";
           Restart = "on-failure";
         };
       };
