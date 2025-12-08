@@ -389,7 +389,7 @@ in {
             done
           '';
           ExecStart = let
-            flags = lib.cli.toGNUCommandLineShell {} {
+            flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config (workerConfig worker) ] ++ cfg.extraConfigFiles;
               keys-directory = cfg.dataDir;
             };
