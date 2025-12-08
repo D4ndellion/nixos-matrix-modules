@@ -12,7 +12,7 @@
 
     lib = import ./lib.nix { lib = nixpkgs.lib; };
 
-    packages = let
+    checks = let
       forAllSystems = f:
         nixpkgs.lib.genAttrs [
           "x86_64-linux"
@@ -20,11 +20,13 @@
           "x86_64-darwin"
           "aarch64-darwin"
         ] (system: f nixpkgs.legacyPackages.${system});
-    in forAllSystems (pkgs: {
+    in forAllSystems (pkgs: let
       tests = import ./tests {
         inherit nixpkgs pkgs;
         matrix-lib = self.lib;
       };
+    in {
+      inherit (tests) nginx-pipeline-eval;
     });
   };
 }

@@ -5,7 +5,7 @@ let
     modules = [
       ../../module.nix
       {
-        system.stateVersion = "23.11";
+        system.stateVersion = "25.11";
         boot.isContainer = true;
         services.matrix-synapse-next = {
           enable = true;
