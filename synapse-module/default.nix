@@ -427,7 +427,7 @@ in
         wantedBy = [ "matrix-synapse.target" ];
 
         preStart = let
-          flags = lib.cli.toGNUCommandLineShell {} {
+          flags = lib.cli.toCommandLineShellGNU {} {
             config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
             keys-directory = cfg.dataDir;
             generate-keys = true;
@@ -443,12 +443,12 @@ in
           StateDirectory = "matrix-synapse";
           RuntimeDirectory = "matrix-synapse";
           ExecStart = let
-            flags = lib.cli.toGNUCommandLineShell {} {
+            flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
               keys-directory = cfg.dataDir;
             };
           in "${wrapped}/bin/synapse_homeserver ${flags}";
-          ExecReload = "${pkgs.utillinux}/bin/kill -HUP $MAINPID";
+          ExecReload = "${lib.getExe' pkgs.coreutils "kill"} -HUP $MAINPID";
           Restart = "on-failure";
         };
       };

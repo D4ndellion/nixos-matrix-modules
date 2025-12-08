@@ -1,4 +1,4 @@
 { nixpkgs, pkgs, matrix-lib, ... }:
 {
-  nginx-pipeline = pkgs.callPackage ./nginx-pipeline { inherit nixpkgs matrix-lib; };
+  nginx-pipeline-eval = pkgs.callPackage ./nginx-pipeline { inherit nixpkgs matrix-lib; };
 }
