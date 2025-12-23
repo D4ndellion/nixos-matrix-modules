@@ -394,6 +394,45 @@ in {
               keys-directory = cfg.dataDir;
             };
           in "${wrapped}/bin/synapse_worker ${flags}";
+
+          CapabilityBoundingSet = [ "" ];
+          LockPersonality = true;
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateTmp = true;
+          PrivateUsers = true;
+          ProcSubset = "pid";
+          ProtectClock = true;
+          ProtectControlGroups = true;
+          ProtectHome = true;
+          ProtectHostname = true;
+          ProtectKernelLogs = true;
+          ProtectKernelModules = true;
+          ProtectKernelTunables = true;
+          ProtectProc = "invisible";
+          ProtectSystem = "strict";
+          ReadWritePaths = [
+            cfg.dataDir
+            cfg.settings.media_store_path
+          ]
+          ++ (map (listener: dirOf listener.path) (
+            lib.filter (listener: listener.path != null) cfg.settings.listeners
+          ));
+          RemoveIPC = true;
+          RestrictAddressFamilies = [
+            "AF_INET"
+            "AF_INET6"
+            "AF_UNIX"
+          ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          SystemCallArchitectures = "native";
+          SystemCallFilter = [
+            "@system-service"
+            "~@resources"
+            "~@privileged"
+          ];
         };
       };
     }));
