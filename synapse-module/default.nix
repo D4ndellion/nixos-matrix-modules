@@ -70,6 +70,14 @@ in
       '';
     };
 
+    withJemalloc = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Whether to preload jemalloc to reduce memory fragmentation and overall usage.
+      '';
+    };
+
     dataDir = mkOption {
       type = types.path;
       default = "/var/lib/matrix-synapse";
@@ -424,6 +432,11 @@ in
         description = "Synapse Matrix homeserver";
         partOf = [ "matrix-synapse.target" ];
         wantedBy = [ "matrix-synapse.target" ];
+
+        environment = lib.optionalAttrs cfg.withJemalloc {
+          LD_PRELOAD = "${pkgs.jemalloc}/lib/libjemalloc.so";
+          PYTHONMALLOC = "malloc";
+        };
 
         serviceConfig = {
           Type = "notify";
