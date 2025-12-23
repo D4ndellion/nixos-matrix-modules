@@ -374,6 +374,12 @@ in {
         wantedBy = [ "matrix-synapse.target" ];
         after = [ "matrix-synapse.service" ];
         requires = [ "matrix-synapse.service" ];
+
+        environment = lib.optionalAttrs cfg.withJemalloc {
+          LD_PRELOAD = "${pkgs.jemalloc}/lib/libjemalloc.so";
+          PYTHONMALLOC = "malloc";
+        };
+
         serviceConfig = {
           Type = "notify";
           User = "matrix-synapse";
