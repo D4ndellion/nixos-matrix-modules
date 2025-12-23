@@ -400,7 +400,6 @@ in
       group = "matrix-synapse";
       home = cfg.dataDir;
       createHome = true;
-      shell = "${pkgs.bash}/bin/bash";
       uid = config.ids.uids.matrix-synapse;
     };
 
@@ -426,14 +425,6 @@ in
         partOf = [ "matrix-synapse.target" ];
         wantedBy = [ "matrix-synapse.target" ];
 
-        preStart = let
-          flags = lib.cli.toCommandLineShellGNU {} {
-            config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
-            keys-directory = cfg.dataDir;
-            generate-keys = true;
-          };
-        in "${cfg.package}/bin/synapse_homeserver ${flags}";
-
         serviceConfig = {
           Type = "notify";
           User = "matrix-synapse";
@@ -442,6 +433,13 @@ in
           WorkingDirectory = cfg.dataDir;
           StateDirectory = "matrix-synapse";
           RuntimeDirectory = "matrix-synapse";
+          ExecStartPre = let
+            flags = lib.cli.toCommandLineShellGNU {} {
+              config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
+              keys-directory = cfg.dataDir;
+              generate-keys = true;
+            };
+          in "${cfg.package}/bin/synapse_homeserver ${flags}";
           ExecStart = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
