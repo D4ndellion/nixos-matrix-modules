@@ -24,6 +24,7 @@ in
         ~^/_matrix/client/(api/v1|r0|v3)/rooms/[^/]+/initialSync$ synapse_initial_sync;
 
         # Federation requests
+        ~^/_matrix/federation/v1/version$ synapse_federation;
         ~^/_matrix/federation/v1/event/ synapse_federation;
         ~^/_matrix/federation/v1/state/ synapse_federation;
         ~^/_matrix/federation/v1/state_ids/ synapse_federation;
@@ -35,6 +36,8 @@ in
         ~^/_matrix/federation/v1/make_leave/ synapse_federation;
         ~^/_matrix/federation/(v1|v2)/send_join/ synapse_federation;
         ~^/_matrix/federation/(v1|v2)/send_leave/ synapse_federation;
+        ~^/_matrix/federation/v1/make_knock/ synapse_federation;
+        ~^/_matrix/federation/v1/send_knock/ synapse_federation;
         ~^/_matrix/federation/(v1|v2)/invite/ synapse_federation;
         ~^/_matrix/federation/v1/event_auth/ synapse_federation;
         ~^/_matrix/federation/v1/timestamp_to_event/ synapse_federation;
@@ -56,17 +59,23 @@ in
         ~^/_matrix/client/v1/rooms/.*/hierarchy$ synapse_client_interaction;
         ~^/_matrix/client/(v1|unstable)/rooms/.*/relations/ synapse_client_interaction;
         ~^/_matrix/client/v1/rooms/.*/threads$ synapse_client_interaction;
-        ~^/_matrix/client/unstable/org.matrix.msc2716/rooms/.*/batch_send$ synapse_client_interaction;
         ~^/_matrix/client/unstable/im.nheko.summary/rooms/.*/summary$ synapse_client_interaction;
         ~^/_matrix/client/(r0|v3|unstable)/account/3pid$ synapse_client_interaction;
         ~^/_matrix/client/(r0|v3|unstable)/account/whoami$ synapse_client_interaction;
-        ~^/_matrix/client/(r0|v3|unstable)/devices$ synapse_client_interaction;
+        ~^/_matrix/client/(r0|v3|unstable)/account/deactivate$ synapse_client_interaction;
+        ~^/_matrix/client/(r0|v3)/delete_devices$ synapse_client_interaction;
+        ~^/_matrix/client/(api/v1|r0|v3|unstable)/devices(/|$) synapse_client_interaction;
         ~^/_matrix/client/versions$ synapse_client_interaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/voip/turnServer$ synapse_client_interaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/rooms/.*/event/ synapse_client_interaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/joined_rooms$ synapse_client_interaction;
         ~^/_matrix/client/v1/rooms/.*/timestamp_to_event$ synapse_client_interaction;
+        ~^/_matrix/client/(api/v1|r0|v3|unstable/.*)/rooms/.*/aliases synapse_client_interaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/search$ synapse_client_interaction;
+        ~^/_matrix/client/(r0|v3|unstable)/user/.*/filter(/|$) synapse_client_interaction;
+        ~^/_matrix/client/(api/v1|r0|v3|unstable)/directory/room/.*$ synapse_client_interaction;
+        ~^/_matrix/client/(r0|v3|unstable)/capabilities$ synapse_client_interaction;
+        ~^/_matrix/client/(r0|v3|unstable)/notifications$ synapse_client_interaction;
 
         # Encryption requests
         ~^/_matrix/client/(r0|v3|unstable)/keys/query$ synapse_client_encryption;
@@ -74,11 +83,15 @@ in
         ~^/_matrix/client/(r0|v3|unstable)/keys/claim$ synapse_client_encryption;
         ~^/_matrix/client/(r0|v3|unstable)/room_keys/ synapse_client_encryption;
         ~^/_matrix/client/(r0|v3|unstable)/keys/upload/ synapse_client_encryption;
+        ~^/_matrix/client/(api/v1|r0|v3|unstable)/keys/device_signing/upload$ synapse_client_encryption;
+        ~^/_matrix/client/(api/v1|r0|v3|unstable)/keys/signatures/upload$ synapse_client_encryption;
 
         # Registration/login requests
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/login$ synapse_client_login;
         ~^/_matrix/client/(r0|v3|unstable)/register$ synapse_client_login;
+        ~^/_matrix/client/(r0|v3|unstable)/register/available$ synapse_client_login;
         ~^/_matrix/client/v1/register/m.login.registration_token/validity$ synapse_client_login;
+        ~^/_matrix/client/(r0|v3|unstable)/password_policy$ synapse_client_login;
 
         # Event sending requests
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/rooms/.*/redact synapse_client_transaction;
@@ -86,6 +99,7 @@ in
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/rooms/.*/state/ synapse_client_transaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/rooms/.*/(join|invite|leave|ban|unban|kick)$ synapse_client_transaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/join/ synapse_client_transaction;
+        ~^/_matrix/client/(api/v1|r0|v3|unstable)/knock/ synapse_client_transaction;
         ~^/_matrix/client/(api/v1|r0|v3|unstable)/profile/ synapse_client_transaction;
 
         # Account data requests
