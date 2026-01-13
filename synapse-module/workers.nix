@@ -74,6 +74,16 @@ in {
           description = "Listener configuration for the worker, similar to the main synapse listener";
           default = [ ];
         };
+
+        worker_log_config = mkOption {
+          type = types.path;
+          description = ''
+            A yaml python logging config file as described by
+            https://docs.python.org/3.7/library/logging.config.html#configuration-dictionary-schema
+          '';
+          default = pkgs.writeText "log_config.yaml" cfg.mainLogConfig;
+          defaultText = "A config file generated from ${cfgText}.mainLogConfig";
+        };
       };
     };
 
