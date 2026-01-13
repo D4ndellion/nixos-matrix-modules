@@ -439,9 +439,14 @@ in
           User = "matrix-synapse";
           Group = "matrix-synapse";
           Slice = "system-matrix-synapse.slice";
+
+          Restart = "always";
+          RestartSec = 3;
+
           WorkingDirectory = cfg.dataDir;
           StateDirectory = "matrix-synapse";
           RuntimeDirectory = "matrix-synapse";
+
           ExecStart = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;

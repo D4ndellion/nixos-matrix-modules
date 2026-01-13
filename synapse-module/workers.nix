@@ -379,9 +379,14 @@ in {
           User = "matrix-synapse";
           Group = "matrix-synapse";
           Slice = "system-matrix-synapse.slice";
+
+          Restart = "always";
+          RestartSec = 3;
+
           WorkingDirectory = cfg.dataDir;
           RuntimeDirectory = "matrix-synapse";
           StateDirectory = "matrix-synapse";
+
           ExecStartPre = pkgs.writers.writeBash "wait-for-synapse" ''
             # From https://md.darmstadt.ccc.de/synapse-at-work
             while ! systemctl is-active -q matrix-synapse.service; do
