@@ -506,9 +506,12 @@ in
           ]) ++ (lib.optionals (cfg.settings.media_store_path != "${cfg.dataDir}/media_store") [
              "${cfg.settings.media_store_path}:/var/lib/matrix-synapse/media_store"
           ]);
-          ReadWritePaths = map (listener: dirOf listener.path) (
-            lib.filter (listener: listener.path != null) cfg.settings.listeners
-          );
+          ReadWritePaths = lib.pipe cfg.settings.listeners [
+            (lib.filter (listener: listener.path != null))
+            (map (listener: dirOf listener.path))
+            (lib.filter (path: path != "/run/matrix-synapse"))
+            lib.uniqueStrings
+          ];
           RemoveIPC = true;
           RestrictAddressFamilies = [
             "AF_INET"
