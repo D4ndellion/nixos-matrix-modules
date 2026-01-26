@@ -1,7 +1,8 @@
-{ pkgs, lib, config, ... }:
-let 
+{ pkgs, lib, options, config, ... }:
+let
   matrix-lib = (import ../lib.nix { inherit lib; });
 
+  opt = options.services.matrix-synapse-next;
   cfg = config.services.matrix-synapse-next;
   wcfg = cfg.workers;
 
@@ -9,11 +10,29 @@ let
   cfgText = "config.services.matrix-synapse-next";
   wcfgText = "config.services.matrix-synapse-next.workers";
 
-  format = pkgs.formats.yaml {};
-  matrix-synapse-common-config = format.generate "matrix-synapse-common-config.yaml" (cfg.settings // {
-    listeners = map (lib.filterAttrsRecursive (_: v: v != null)) cfg.settings.listeners;
-    media_store_path = "/var/lib/matrix-synapse/media_store";
-  });
+  usesCustomSigningKeyPath = cfg.settings.signing_key_path != (opt.settings.type.getSubOptions { }).signing_key_path.default;
+
+  format = pkgs.formats.yaml { };
+  matrix-synapse-common-config = lib.pipe cfg.settings [
+    (settings: settings // {
+      listeners = map (lib.filterAttrsRecursive (_: v: v != null)) cfg.settings.listeners;
+      media_store_path = "/var/lib/matrix-synapse/media_store";
+    })
+    (settings: settings // (lib.optionalAttrs usesCustomSigningKeyPath {
+      signing_key_path = "/run/credentials/matrix-synapse.service/signing_key";
+    }))
+    (let
+      filterRecursiveNull =
+          o:
+          if lib.isAttrs o then
+            lib.mapAttrs (_: v: filterRecursiveNull v) (lib.filterAttrs (_: v: v != null) o)
+          else if lib.isList o then
+            map filterRecursiveNull (lib.filter (v: v != null) o)
+          else
+            o;
+    in filterRecursiveNull)
+    (format.generate "matrix-synapse-common-config.yaml")
+  ];
 
   # TODO: Align better with the upstream module
   wrapped = cfg.package.override { 
@@ -511,6 +530,9 @@ in
             (map (listener: dirOf listener.path))
             (lib.filter (path: path != "/run/matrix-synapse"))
             lib.uniqueStrings
+          ];
+          LoadCredential = lib.mkIf usesCustomSigningKeyPath [
+            "signing_key:${cfg.settings.signing_key_path}"
           ];
           RemoveIPC = true;
           RestrictAddressFamilies = [
