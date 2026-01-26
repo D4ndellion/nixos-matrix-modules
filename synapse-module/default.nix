@@ -35,7 +35,7 @@ let
   ];
 
   # TODO: Align better with the upstream module
-  wrapped = cfg.package.override { 
+  wrapped = cfg.package.override {
     inherit (cfg) plugins;
     extras = [
       "postgres"
