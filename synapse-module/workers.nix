@@ -382,7 +382,12 @@ in {
         description = "Synapse Matrix Worker";
         partOf = [ "matrix-synapse.target" ];
         wantedBy = [ "matrix-synapse.target" ];
-        after = [ "matrix-synapse.service" ];
+        after = [
+          "matrix-synapse.service"
+        ] ++ (lib.optionals (config.systemd.tmpfiles.settings."10-matrix-synapse" != { }) [
+          "systemd-tmpfiles-setup.service"
+          "systemd-tmpfiles-resetup.service"
+        ]);
         requires = [ "matrix-synapse.service" ];
 
         environment = lib.optionalAttrs cfg.withJemalloc {
@@ -399,7 +404,7 @@ in {
           Restart = "always";
           RestartSec = 3;
 
-          WorkingDirectory = cfg.dataDir;
+          WorkingDirectory = "/var/lib/matrix-synapse";
           RuntimeDirectory = "matrix-synapse";
           StateDirectory = "matrix-synapse";
 
@@ -412,7 +417,7 @@ in {
           ExecStart = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config (workerConfig worker) ] ++ cfg.extraConfigFiles;
-              keys-directory = cfg.dataDir;
+              keys-directory = "/var/lib/matrix-synapse";
             };
           in "${wrapped}/bin/synapse_worker ${flags}";
 
@@ -433,13 +438,14 @@ in {
           ProtectKernelTunables = true;
           ProtectProc = "invisible";
           ProtectSystem = "strict";
-          ReadWritePaths = [
-            cfg.dataDir
-            cfg.settings.media_store_path
-          ]
-          ++ (map (listener: dirOf listener.path) (
+          BindPaths = (lib.optionals (cfg.dataDir != "/var/lib/matrix-synapse") [
+            "${cfg.dataDir}:/var/lib/matrix-synapse"
+          ]) ++ (lib.optionals (cfg.settings.media_store_path != "${cfg.dataDir}/media_store") [
+             "${cfg.settings.media_store_path}:/var/lib/matrix-synapse/media_store"
+          ]);
+          ReadWritePaths = map (listener: dirOf listener.path) (
             lib.filter (listener: listener.path != null) cfg.settings.listeners
-          ));
+          );
           RemoveIPC = true;
           RestrictAddressFamilies = [
             "AF_INET"
