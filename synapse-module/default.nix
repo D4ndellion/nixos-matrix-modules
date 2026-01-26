@@ -12,6 +12,7 @@ let
   format = pkgs.formats.yaml {};
   matrix-synapse-common-config = format.generate "matrix-synapse-common-config.yaml" (cfg.settings // {
     listeners = map (lib.filterAttrsRecursive (_: v: v != null)) cfg.settings.listeners;
+    media_store_path = "/var/lib/matrix-synapse/media_store";
   });
 
   # TODO: Align better with the upstream module
@@ -406,7 +407,7 @@ in
 
     users.users.matrix-synapse = {
       group = "matrix-synapse";
-      home = cfg.dataDir;
+      home = "/var/lib/matrix-synapse";
       createHome = true;
       uid = config.ids.uids.matrix-synapse;
     };
@@ -428,10 +429,27 @@ in
         after= [ "system.slice" ];
       };
 
+      tmpfiles.settings."10-matrix-synapse" = {
+        "${cfg.dataDir}".d = lib.mkIf (cfg.dataDir != "/var/lib/matrix-synapse") {
+          user = "matrix-synapse";
+          group = "matrix-synapse";
+          mode = "0700";
+        };
+        "${cfg.settings.media_store_path}".d = lib.mkIf (cfg.settings.media_store_path != "/var/lib/matrix-synapse/media_store") {
+          user = "matrix-synapse";
+          group = "matrix-synapse";
+          mode = "0700";
+        };
+      };
+
       services.matrix-synapse = {
         description = "Synapse Matrix homeserver";
         partOf = [ "matrix-synapse.target" ];
         wantedBy = [ "matrix-synapse.target" ];
+        after = lib.mkIf (config.systemd.tmpfiles.settings."10-matrix-synapse" != { }) [
+          "systemd-tmpfiles-setup.service"
+          "systemd-tmpfiles-resetup.service"
+        ];
 
         environment = lib.optionalAttrs cfg.withJemalloc {
           LD_PRELOAD = "${pkgs.jemalloc}/lib/libjemalloc.so";
@@ -447,21 +465,21 @@ in
           Restart = "always";
           RestartSec = 3;
 
-          WorkingDirectory = cfg.dataDir;
+          WorkingDirectory = "/var/lib/matrix-synapse";
           StateDirectory = "matrix-synapse";
           RuntimeDirectory = "matrix-synapse";
 
           ExecStartPre = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
-              keys-directory = cfg.dataDir;
+              keys-directory = "/var/lib/matrix-synapse";
               generate-keys = true;
             };
           in "${cfg.package}/bin/synapse_homeserver ${flags}";
           ExecStart = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
-              keys-directory = cfg.dataDir;
+              keys-directory = "/var/lib/matrix-synapse";
             };
           in "${wrapped}/bin/synapse_homeserver ${flags}";
           ExecReload = "${lib.getExe' pkgs.coreutils "kill"} -HUP $MAINPID";
@@ -483,13 +501,14 @@ in
           ProtectKernelTunables = true;
           ProtectProc = "invisible";
           ProtectSystem = "strict";
-          ReadWritePaths = [
-            cfg.dataDir
-            cfg.settings.media_store_path
-          ]
-          ++ (map (listener: dirOf listener.path) (
+          BindPaths = (lib.optionals (cfg.dataDir != "/var/lib/matrix-synapse") [
+            "${cfg.dataDir}:/var/lib/matrix-synapse"
+          ]) ++ (lib.optionals (cfg.settings.media_store_path != "${cfg.dataDir}/media_store") [
+             "${cfg.settings.media_store_path}:/var/lib/matrix-synapse/media_store"
+          ]);
+          ReadWritePaths = map (listener: dirOf listener.path) (
             lib.filter (listener: listener.path != null) cfg.settings.listeners
-          ));
+          );
           RemoveIPC = true;
           RestrictAddressFamilies = [
             "AF_INET"
