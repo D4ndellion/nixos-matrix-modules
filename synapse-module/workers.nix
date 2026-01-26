@@ -58,7 +58,7 @@ in {
 
     workerSettingsType = instanceCfg: types.submodule {
       freeformType = format.type;
-      
+
       options = {
         worker_app = mkOption {
           type = types.enum [
@@ -295,7 +295,7 @@ in {
 
       stream_writers.events =
         mkIf (wcfg.eventPersisters > 0)
-        (lib.genList (i: "auto-event-persist${toString (i + 1)}") wcfg.eventPersisters); 
+        (lib.genList (i: "auto-event-persist${toString (i + 1)}") wcfg.eventPersisters);
 
       update_user_directory_from_worker =
         mkIf wcfg.useUserDirectoryWorker "auto-user-dir";

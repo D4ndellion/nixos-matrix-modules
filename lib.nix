@@ -6,7 +6,7 @@ rec {
   firstListenerOfType = type: ls: lib.lists.findFirst (isListenerType type)
     (throw "No listener with resource: ${type} configured")
     ls;
-  # Get an attrset of the host and port from a listener 
+  # Get an attrset of the host and port from a listener
   connectionInfo = l: {
     host = lib.head l.bind_addresses;
     port = l.port;
