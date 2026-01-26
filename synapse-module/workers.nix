@@ -4,14 +4,16 @@
   throw',
   format
 }:
-{ pkgs, lib, config, ... }: let
-
+{ pkgs, lib, options, config, ... }: let
+  opt = options.services.matrix-synapse-next;
   cfg = config.services.matrix-synapse-next;
   wcfg = config.services.matrix-synapse-next.workers;
 
   # Used to generate proper defaultTexts.
   cfgText = "config.services.matrix-synapse-next";
   wcfgText = "config.services.matrix-synapse-next.workers";
+
+  usesCustomSigningKeyPath = cfg.settings.signing_key_path != (opt.settings.type.getSubOptions { }).signing_key_path.default;
 
   inherit (lib) types mkOption mkEnableOption mkIf mkMerge literalExpression;
 
@@ -448,6 +450,9 @@ in {
             (map (listener: dirOf listener.path))
             (lib.filter (path: path != "/run/matrix-synapse"))
             lib.uniqueStrings
+          ];
+          LoadCredential = lib.mkIf usesCustomSigningKeyPath [
+            "signing_key:${cfg.settings.signing_key_path}"
           ];
           RemoveIPC = true;
           RestrictAddressFamilies = [
