@@ -462,7 +462,8 @@ in
     systemd = {
       targets.matrix-synapse = {
         description = "Matrix synapse parent target";
-        after = [ "network.target" ];
+        after = [ "network-online.target" ];
+        requires = [ "network-online.target" ];
         wantedBy = [ "multi-user.target" ];
       };
 
