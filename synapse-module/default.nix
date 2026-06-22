@@ -288,6 +288,30 @@ in
             ];
           };
 
+          database.name = mkOption {
+            type = types.enum [ "psycopg2" ];
+            default = "psycopg2";
+            description = ''
+              The database engine name. Hardcoded to psycopg2, this module is not designed for use with sqlite.
+            '';
+          };
+
+          database.args.database = mkOption {
+            type = types.str;
+            default = "matrix-synapse";
+            description = ''
+              Name of the database.
+            '';
+          };
+
+          database.args.user = mkOption {
+            type = types.nullOr types.str;
+            default = "matrix-synapse";
+            description = ''
+              Username to use when connecting to postgresql.
+            '';
+          };
+
           federation_ip_range_blacklist = mkOption {
             type = types.listOf types.str;
             description = ''
