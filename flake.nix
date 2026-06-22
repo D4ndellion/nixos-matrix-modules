@@ -26,7 +26,10 @@
         matrix-lib = self.lib;
       };
     in {
-      inherit (tests) nginx-pipeline-eval;
+      inherit (tests)
+        nginx-pipeline-eval
+        synapse
+        ;
     });
   };
 }
