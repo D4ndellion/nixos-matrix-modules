@@ -372,12 +372,19 @@ in {
     systemd.services = let
       workerList = lib.mapAttrsToList lib.nameValuePair wcfg.instances;
       workerConfig = worker:
-        format.generate "matrix-synapse-worker-${worker.name}-config.yaml"
-        (worker.value.settings // {
-          worker_name = worker.name;
-          worker_listeners =
-            map (lib.filterAttrsRecursive (_: v: v != null)) worker.value.settings.worker_listeners;
-        });
+        format.generate "matrix-synapse-worker-${worker.name}-config.yaml" (
+          worker.value.settings
+          //
+          {
+            worker_name = worker.name;
+            worker_listeners = map (lib.filterAttrsRecursive (_: v: v != null)) worker.value.settings.worker_listeners;
+          }
+          //
+          # NOTE: the workers cannot pick up creds from `/run/credentials/matrix-synapse.service/*`
+          (lib.optionalAttrs usesCustomSigningKeyPath {
+            signing_key_path = "/run/credentials/matrix-synapse-worker-${worker.name}.service/signing_key";
+          })
+        );
     in builtins.listToAttrs (lib.flip map workerList (worker: {
       name = "matrix-synapse-worker-${worker.name}";
       value = {
