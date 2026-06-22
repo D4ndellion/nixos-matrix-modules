@@ -29,6 +29,7 @@
       inherit (tests)
         nginx-pipeline-eval
         synapse
+        synapse-workers
         ;
     });
   };
