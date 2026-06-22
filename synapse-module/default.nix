@@ -135,7 +135,7 @@ in
       description = "A yaml python logging config file";
     };
 
-    enableSlidingSync = mkEnableOption (lib.mdDoc "automatic Sliding Sync setup at `slidingsync.<domain>`");
+    enableSlidingSync = mkEnableOption "automatic Sliding Sync setup at `slidingsync.<domain>`";
 
     settings = mkOption {
       type = types.submodule {
