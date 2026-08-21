@@ -466,6 +466,7 @@ in {
           SocketBindAllow = lib.pipe worker.value.settings.worker_listeners [
             (map (lib.filterAttrsRecursive (_: v: v != null)))
             (lib.catAttrs "port")
+            (lib.filter (p: p != null))
           ];
           SocketBindDeny = "any";
           SystemCallArchitectures = "native";
