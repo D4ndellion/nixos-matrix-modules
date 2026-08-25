@@ -568,7 +568,9 @@ in
           RestrictNamespaces = true;
           RestrictRealtime = true;
           RestrictSUIDSGID = true;
-          SocketBindAllow = lib.catAttrs "port" cfg.settings.listeners;
+          SocketBindAllow = lib.filter (p: p != null) (
+            lib.catAttrs "port" cfg.settings.listeners
+          );
           SocketBindDeny = "any";
           SystemCallArchitectures = "native";
           SystemCallFilter = [
