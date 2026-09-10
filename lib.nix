@@ -1,5 +1,13 @@
 { lib }:
 rec {
+  isSystemdPath = path: path != null && lib.hasPrefix "systemd:" path;
+  systemdSocketName = path: lib.removePrefix "systemd:" path;
+  systemdSocketPath = socketDir: path: "${socketDir}/${systemdSocketName path}.sock";
+  resolveSystemdListeners = socketDir: map (listener:
+    if isSystemdPath (listener.path or null)
+      then listener // { path = systemdSocketPath socketDir listener.path; }
+      else listener);
+
   # checks if given listener configuration has type as a resource
   isListenerType = type: l: lib.any (r: lib.any (n: n == type) r.names) l.resources;
   # Get the first listener that includes the given resource from worker

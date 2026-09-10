@@ -104,7 +104,7 @@ in {
         };
 
         path = mkOption {
-          type = with types; nullOr path;
+          type = with types; nullOr (either (strMatching "^systemd:.*") (strMatching "^/.*"));
           default = null;
           description = "The UNIX socket to bind to";
         };
@@ -201,7 +201,9 @@ in {
 
     mainReplicationPath = mkOption {
       type = with types; nullOr path;
-      default = mainReplicationListener.path;
+      default = if matrix-lib.isSystemdPath mainReplicationListener.path
+        then matrix-lib.systemdSocketPath cfg.socketDir mainReplicationListener.path
+        else mainReplicationListener.path;
       # TODO: add defaultText
       description = "Path to the UNIX socket of the main synapse instance's replication listener";
     };
@@ -290,7 +292,9 @@ in {
         (i: let
           wRL = matrix-lib.firstListenerOfType "replication" wcfg.instances."auto-event-persist${toString i}".settings.worker_listeners;
         in if wRL.path != null then {
-          inherit (wRL) path;
+          path = if matrix-lib.isSystemdPath wRL.path
+            then matrix-lib.systemdSocketPath cfg.socketDir wRL.path
+            else wRL.path;
         } else matrix-lib.connectionInfo wRL)));
 
       stream_writers.events =
@@ -302,16 +306,10 @@ in {
     };
 
     services.matrix-synapse-next.workers.instances = let
-      sum = lib.foldl lib.add 0;
       workerListenersWithMetrics = portOffset: name:
-        [(if wcfg.workersUsePath
-          then {
-            path = "${cfg.socketDir}/matrix-synapse-worker-${name}.sock";
-          }
-          else {
-            port = wcfg.workerStartingPort + portOffset - 1;
-          }
-        )]
+        [{
+          path = "systemd:matrix-synapse-worker-${name}";
+        }]
         ++ lib.optional wcfg.enableMetrics {
           port = wcfg.metricsStartingPort + portOffset;
           resources = [ { names = [ "metrics" ]; } ];
@@ -369,6 +367,35 @@ in {
       mkMerge
     ];
 
+    systemd.sockets = lib.concatMapAttrs (name: worker: lib.pipe worker.settings.worker_listeners [
+      (lib.filter (l: l.type == "http"))
+      (lib.filter (l: matrix-lib.isSystemdPath l.path))
+      (map (l: {
+        name = matrix-lib.systemdSocketName l.path;
+        value = {
+          wantedBy = [
+            "sockets.target"
+            "matrix-synapse.target"
+          ];
+          # NOTE: Here we're just making an opinionated choice to use a unix socket with
+          #       an inferred path based on the socket name. Maybe the user should be able
+          #       to configure this instead.
+          listenStreams = [ (matrix-lib.systemdSocketPath cfg.socketDir l.path) ];
+          socketConfig = {
+            Service  = "matrix-synapse-worker-${name}.service";
+            FileDescriptorName = matrix-lib.systemdSocketName l.path;
+            SocketUser = "matrix-synapse";
+            SocketGroup = "matrix-synapse";
+            SocketMode = "0666";
+
+            RuntimeDirectory = "matrix-synapse";
+            RuntimeDirectoryPreserve = true;
+          };
+        };
+      }))
+      lib.listToAttrs
+    ]) wcfg.instances;
+
     systemd.services = let
       workerList = lib.mapAttrsToList lib.nameValuePair wcfg.instances;
       workerConfig = worker:
@@ -377,7 +404,10 @@ in {
           //
           {
             worker_name = worker.name;
-            worker_listeners = map (lib.filterAttrsRecursive (_: v: v != null)) worker.value.settings.worker_listeners;
+            worker_listeners = lib.pipe worker.value.settings.worker_listeners [
+              (map (lib.filterAttrsRecursive (_: v: v != null)))
+              (map (listener: if (listener.path or null) != null then removeAttrs listener [ "bind_addresses" ] else listener))
+            ];
           }
           //
           # NOTE: the workers cannot pick up creds from `/run/credentials/matrix-synapse.service/*`
@@ -385,19 +415,27 @@ in {
             signing_key_path = "/run/credentials/matrix-synapse-worker-${worker.name}.service/signing_key";
           })
         );
-    in builtins.listToAttrs (lib.flip map workerList (worker: {
+    in builtins.listToAttrs (lib.flip map workerList (worker: let
+      socketUnits = lib.pipe worker.value.settings.worker_listeners [
+        (lib.filter (l: l.type == "http"))
+        (lib.filter (l: matrix-lib.isSystemdPath l.path))
+        (map (l: "${matrix-lib.systemdSocketName l.path}.socket"))
+        lib.uniqueStrings
+      ];
+    in {
       name = "matrix-synapse-worker-${worker.name}";
       value = {
         description = "Synapse Matrix Worker";
         partOf = [ "matrix-synapse.target" ];
         wantedBy = [ "matrix-synapse.target" ];
         after = [
-          "matrix-synapse.service"
+          "network-online.target"
+          "matrix-synapse-replication.socket"
         ] ++ (lib.optionals (config.systemd.tmpfiles.settings."10-matrix-synapse" != { }) [
           "systemd-tmpfiles-setup.service"
           "systemd-tmpfiles-resetup.service"
         ]);
-        requires = [ "matrix-synapse.service" ];
+        requires = [ "matrix-synapse-replication.socket" ] ++ socketUnits;
 
         environment = lib.optionalAttrs cfg.withJemalloc {
           LD_PRELOAD = "${pkgs.jemalloc}/lib/libjemalloc.so";
@@ -410,19 +448,16 @@ in {
           Group = "matrix-synapse";
           Slice = "system-matrix-synapse.slice";
 
+          Sockets = socketUnits;
+
           Restart = "always";
           RestartSec = 3;
 
           WorkingDirectory = "/var/lib/matrix-synapse";
-          RuntimeDirectory = "matrix-synapse";
           StateDirectory = "matrix-synapse";
+          RuntimeDirectory = "matrix-synapse";
+          RuntimeDirectoryPreserve = true;
 
-          ExecStartPre = pkgs.writers.writeBash "wait-for-synapse" ''
-            # From https://md.darmstadt.ccc.de/synapse-at-work
-            while ! systemctl is-active -q matrix-synapse.service; do
-                sleep 1
-            done
-          '';
           ExecStart = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config (workerConfig worker) ] ++ cfg.extraConfigFiles;
@@ -453,7 +488,7 @@ in {
              "${cfg.settings.media_store_path}:/var/lib/matrix-synapse/media_store"
           ]);
           ReadWritePaths = lib.pipe cfg.settings.listeners [
-            (lib.filter (listener: listener.path != null))
+            (lib.filter (listener: listener.path != null && !matrix-lib.isSystemdPath listener.path))
             (map (listener: dirOf listener.path))
             (lib.filter (path: path != "/run/matrix-synapse"))
             lib.uniqueStrings

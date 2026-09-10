@@ -4,8 +4,16 @@ let
 
   matrix-lib = (import ../lib.nix { inherit lib; });
 
-  workerUpstreams = matrix-lib.mapWorkersToUpstreamsByType cfg.workers.instances;
-  listenerUpstreams = matrix-lib.mapListenersToUpstreamsByType cfg.settings.listeners;
+  resolveListeners = matrix-lib.resolveSystemdListeners cfg.socketDir;
+
+  workerUpstreams = matrix-lib.mapWorkersToUpstreamsByType (
+    lib.mapAttrs (_: worker: lib.recursiveUpdate worker {
+      settings.worker_listeners = resolveListeners worker.settings.worker_listeners;
+    }) cfg.workers.instances
+  );
+  listenerUpstreams = matrix-lib.mapListenersToUpstreamsByType (
+    resolveListeners cfg.settings.listeners
+  );
 in
 {
   config = lib.mkIf cfg.enableNginx {

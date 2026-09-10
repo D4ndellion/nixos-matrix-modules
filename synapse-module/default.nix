@@ -37,6 +37,15 @@ let
   # TODO: Align better with the upstream module
   wrapped = cfg.package.override {
     inherit (cfg) plugins;
+    matrix-synapse-unwrapped = cfg.package.unwrapped.overrideAttrs (old: {
+      patches = old.patches or [ ] ++ [
+        (pkgs.fetchpatch {
+          name = "systemd-sockets.patch";
+          url = "https://patch-diff.githubusercontent.com/raw/element-hq/synapse/pull/20201.patch";
+          hash = "sha256-a462X5SYguZbgPkctcRUXlvRwog2aCWa7rhjZYjhsxA=";
+        })
+      ];
+    });
     extras = [
       "postgres"
       "oidc"
@@ -185,7 +194,7 @@ in
                 };
 
                 path = mkOption {
-                  type = with types; nullOr path;
+                  type = with types; nullOr (either (strMatching "^systemd:.*") (strMatching "^/.*"));
                   default = null;
                   description = ''
                     The UNIX socket to bind to.
@@ -266,14 +275,14 @@ in
             # TODO: add defaultText
             default = [
               {
-                path = "${cfg.socketDir}/matrix-synapse.sock";
+                path = "systemd:matrix-synapse-http";
                 resources = [
                   { names = [ "client" ]; compress = true; }
                   { names = [ "federation" ]; compress = false; }
                 ];
               }
               (mkIf (wcfg.instances != { }) {
-                path = "${cfg.socketDir}/matrix-synapse-replication.sock";
+                path = "systemd:matrix-synapse-replication";
                 resources = [
                   {  names = [ "replication" ]; }
                 ];
@@ -486,7 +495,66 @@ in
         };
       };
 
-      services.matrix-synapse = {
+      sockets = lib.pipe cfg.settings.listeners [
+        (lib.filter (l: l.type == "http"))
+        (lib.filter (l: matrix-lib.isSystemdPath l.path))
+        (map (l: {
+          name = matrix-lib.systemdSocketName l.path;
+          value = {
+            wantedBy = [
+              "sockets.target"
+              "matrix-synapse.target"
+            ];
+            # NOTE: Here we're just making an opinionated choice to use a unix socket with
+            #       an inferred path based on the socket name. Maybe the user should be able
+            #       to configure this instead.
+            listenStreams = [ (matrix-lib.systemdSocketPath cfg.socketDir l.path) ];
+            socketConfig = {
+              Service = "matrix-synapse.service";
+              FileDescriptorName = matrix-lib.systemdSocketName l.path;
+              SocketUser = "matrix-synapse";
+              SocketGroup = "matrix-synapse";
+              SocketMode = "0666";
+
+              RuntimeDirectory = "matrix-synapse";
+              RuntimeDirectoryPreserve = true;
+            };
+          };
+        }))
+        lib.listToAttrs
+      ] // lib.optionalAttrs (wcfg.instances != { }) {
+        "matrix-synapse-replication" = {
+          wantedBy = [
+            "sockets.target"
+            "matrix-synapse.target"
+          ];
+          listenStreams = [
+            (matrix-lib.systemdSocketPath cfg.socketDir "systemd:matrix-synapse-replication")
+          ];
+          socketConfig = {
+            Service = "matrix-synapse.service";
+            FileDescriptorName = "matrix-synapse-replication";
+            SocketUser = "matrix-synapse";
+            SocketGroup = "matrix-synapse";
+            SocketMode = "0660";
+
+            RuntimeDirectory = "matrix-synapse";
+            RuntimeDirectoryPreserve = true;
+          };
+        };
+      };
+
+      services.matrix-synapse = let
+        socketUnits = lib.pipe cfg.settings.listeners [
+          (lib.filter (l: l.type == "http"))
+          (lib.filter (l: matrix-lib.isSystemdPath l.path))
+          (map (l: matrix-lib.systemdSocketName l.path + ".socket"))
+          (sockets: sockets ++ lib.optionals (wcfg.instances != { }) [
+            "matrix-synapse-replication.socket"
+          ])
+          lib.uniqueStrings
+        ];
+      in {
         description = "Synapse Matrix homeserver";
         partOf = [ "matrix-synapse.target" ];
         wantedBy = [ "matrix-synapse.target" ];
@@ -494,6 +562,7 @@ in
           "systemd-tmpfiles-setup.service"
           "systemd-tmpfiles-resetup.service"
         ];
+        requires = socketUnits;
 
         environment = lib.optionalAttrs cfg.withJemalloc {
           LD_PRELOAD = "${pkgs.jemalloc}/lib/libjemalloc.so";
@@ -506,12 +575,15 @@ in
           Group = "matrix-synapse";
           Slice = "system-matrix-synapse.slice";
 
+          Sockets = socketUnits;
+
           Restart = "always";
           RestartSec = 3;
 
           WorkingDirectory = "/var/lib/matrix-synapse";
           StateDirectory = "matrix-synapse";
           RuntimeDirectory = "matrix-synapse";
+          RuntimeDirectoryPreserve = true;
 
           ExecStartPre = let
             flags = lib.cli.toCommandLineShellGNU {} {
@@ -551,7 +623,7 @@ in
              "${cfg.settings.media_store_path}:/var/lib/matrix-synapse/media_store"
           ]);
           ReadWritePaths = lib.pipe cfg.settings.listeners [
-            (lib.filter (listener: listener.path != null))
+            (lib.filter (listener: listener.path != null && !matrix-lib.isSystemdPath listener.path))
             (map (listener: dirOf listener.path))
             (lib.filter (path: path != "/run/matrix-synapse"))
             lib.uniqueStrings
