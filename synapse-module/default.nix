@@ -519,7 +519,7 @@ in
               keys-directory = "/var/lib/matrix-synapse";
               generate-keys = true;
             };
-          in "${cfg.package}/bin/synapse_homeserver ${flags}";
+          in "${wrapped}/bin/synapse_homeserver ${flags}";
           ExecStart = let
             flags = lib.cli.toCommandLineShellGNU {} {
               config-path = [ matrix-synapse-common-config ] ++ cfg.extraConfigFiles;
