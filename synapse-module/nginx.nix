@@ -191,6 +191,7 @@ in
       forceSSL = true;
       locations."/_matrix" = {
         proxyPass = "http://$synapse_backend";
+        recommendedProxySettings = true;
         extraConfig = ''
           add_header X-debug-backend $synapse_backend;
           add_header X-debug-group $synapse_uri_group;
@@ -200,27 +201,32 @@ in
       };
       locations."~ ^/_matrix/client/(r0|v3)/sync$" = {
         proxyPass = "http://$synapse_backend";
+        recommendedProxySettings = true;
         extraConfig = ''
           proxy_read_timeout 1h;
         '';
       };
       locations."~ ^/_matrix/client/(api/v1|r0|v3)/initialSync$" = {
         proxyPass = "http://synapse_worker_initial_sync";
+        recommendedProxySettings = true;
         extraConfig = ''
           proxy_read_timeout 1h;
         '';
       };
       locations."~ ^/_matrix/client/(api/v1|r0|v3)/rooms/[^/]+/initialSync$" = {
         proxyPass = "http://synapse_worker_initial_sync";
+        recommendedProxySettings = true;
         extraConfig = ''
           proxy_read_timeout 1h;
         '';
       };
       locations."/_synapse/client" = {
         proxyPass = "http://$synapse_backend";
+        recommendedProxySettings = true;
       };
       locations."/.well-known/matrix" = {
         proxyPass = "http://$synapse_backend";
+        recommendedProxySettings = true;
       };
     };
   };
