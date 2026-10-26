@@ -570,7 +570,10 @@ in
           RestrictSUIDSGID = true;
           SocketBindAllow = lib.filter (p: p != null) (
             lib.catAttrs "port" cfg.settings.listeners
-          );
+          ) ++ [
+            # Twisted binds random UDP ports on looking up SRV queries
+            "udp:1024-65535"
+          ];
           SocketBindDeny = "any";
           SystemCallArchitectures = "native";
           SystemCallFilter = [
